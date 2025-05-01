@@ -13,16 +13,21 @@ namespace PSBSD
 {
     internal class Config
     {
-        internal static readonly string ServiceId = "d3d00100-7976-472f-a3f7-bc1760d19e14";
-        internal static readonly string PackageFamilyName = "Microsoft.ProjectSpark-Dakota_8wekyb3d8bbwe";
+        internal static readonly string ServiceId2 = "99330100-8230-4304-8448-b7b80ffcf70b";
+        internal static readonly string PackageFamilyName2 = "DisneyConsumerProductsand.DisneyInfinityRevolution_jrvsvx228t8wp";
+
+        internal static readonly string ServiceId3 = "7dd70100-ef4f-47b7-bcfb-0e6a09230e16";
+        internal static readonly string PackageFamilyName3 = "DisneyConsumerProductsand.Infinity3_jrvsvx228t8wp";
         internal static string UserToken { get; set; }
         internal static string DeviceToken { get; set; }
-        public static readonly string FinalMessage = "Thank you for using our app.\n\nfor the sake of preservation please consider sharing/donating your worlds and downloaded worlds with us at sparkdev discord\nwe are trying to launch a preservation and archival project.\nclick on the discord icon for a invite.";
+        public static readonly string FinalMessage = "Thank you for using our app.\n\nFor the sake of preservation please consider sharing/donating your Toyboxes with us on the Disney Infinity discord\nWe are trying to launch a preservation and archival project.\nClick on the discord icon for a invite.";
 
         internal static readonly DateTime LaunchDatetime = DateTime.Now;
-        internal static readonly string Disclaimer = "DISCLAIMER:\n* I understand that this software connects to Xbox live REST API and beside that no data is collected or shared.\n* I understand that the credentials are taken from the Xbox app and login details are not necesary\n* and i understand that running this program multiple times a in an hour has the chance to get me rate limited and potentially banned.\n* i understand that developer is not responsible for my misuse";
+        internal static readonly string Disclaimer = "DISCLAIMER:\n* I understand that this software connects to Xbox live REST API and beside that no data is collected or shared.\n* I understand that the credentials are taken from the Xbox app and login details are not necessary\n* I understand that running this program multiple times in an hour has the chance to get me rate limited and potentially banned.\n* I understand that developer is not responsible for my misuse";
         internal static string OutputPath = "";
-        internal static readonly string MetaFileName = ".partial.spark";
+        internal static string ServiceId = ServiceId2;
+        internal static string PackageFamilyName = PackageFamilyName2;
+        internal static readonly string MetaFileName = ".partial.disneyinfinity";
     }
     internal class Tools
     {
@@ -166,11 +171,9 @@ namespace PSBSD
             }
             return;
         }
-        internal static async Task<Byte[]> DownloadAtomData(TitleStorageBlobMetadata b)
+        internal static async Task<Byte[]> DownloadAtomData(string atom)
         {
-            TitleStorageAtomMetadataResult downloadAtom = await _storageService.GetBlobAtoms(b.FileName);
-            return await _storageService.DownloadAtomAsync(downloadAtom.Atoms["Data"]);
-
+            return await _storageService.DownloadAtomAsync(atom);
         }
         internal static async Task Download()
         {
@@ -240,8 +243,18 @@ namespace PSBSD
                 return;
             }
 
-            Log($"Found {_saveData.Count} blobs");
-            Downloader.main.ProgressBarUpdate(0, _saveData.Count);
+            var blobMetadata = new Dictionary<string, TitleStorageAtomMetadataResult>();
+            foreach (TitleStorageBlobMetadata blob in _saveData)
+            {
+                TitleStorageAtomMetadataResult atomMetadata = await _storageService.GetBlobAtoms(blob.FileName);
+                blobMetadata.Add(blob.FileName, atomMetadata);
+            }
+
+            var blobCount = blobMetadata.Count;
+            var atomCount = blobMetadata.Sum(a => a.Value.Atoms.Count);
+
+            Log($"Found {blobCount} blobs with {atomCount} atoms");
+            Downloader.main.ProgressBarUpdate(0, atomCount);
             Log($"Saving in the output folder: {Config.OutputPath}");
 
             Log("Preparing for download");
@@ -257,150 +270,138 @@ namespace PSBSD
 
             foreach (TitleStorageBlobMetadata blob in _saveData)
             {
-
-
-                string filename = blob.FileName.Split('/').Last();
-                filename = filename.Replace(",savedgame", "");
-                filename = filename.Replace("X", ".");
-                filename = filename.Replace("E", "_");
-                string localpath = string.Join(Path.DirectorySeparatorChar, blob.FileName.Split('/').SkipLast(1));
-                localpath = localpath.Replace("X", ".");
-                localpath = localpath.Replace("E", "_");
-                string fullpath = Path.Combine(Config.OutputPath, localpath);
-                _ = Directory.CreateDirectory(fullpath);
-                string FilePath = Path.Combine(fullpath, filename);
-
-                //ignore txt files
-                if (Path.GetExtension(filename) == ".txt")
+                var atomMetadata = await _storageService.GetBlobAtoms(blob.FileName);
+                foreach (string atom in atomMetadata.Atoms.Keys)
                 {
-                    Log("Downloading txt files are currently not supported. skipping");
-                    continue;
-                }
+                    var atomId = atomMetadata.Atoms[atom];
+                    var filename = atom;
+                    var filePath = Path.Combine(Config.OutputPath, filename);
 
-                if (partial)
-                {
-                    if (File.Exists(FilePath))
+
+                    if (partial)
                     {
-                        if (new FileInfo(FilePath).Length != 0)
+                        if (File.Exists(filePath))
                         {
-                            Log($"skipping {filename} already exists");
-                            continue;
-                        }
-                        else
-                        {
-                            try
+                            if (new FileInfo(filePath).Length != 0)
                             {
-                                File.Delete(FilePath);
-                            }
-                            catch (Exception ex)
-                            {
-                                Error(ex);
-                                noerror = false;
-                                Log($"skipping {filename} Couldnt delete the invalid file");
+                                Log($"skipping {filename} already exists");
                                 continue;
-                            }
-                        }
-                    }
-                }
-
-                Log($"Downloading Atom: {filename}");
-
-                byte[] atomData = null;
-                try
-                {
-                    atomData = await DownloadAtomData(blob);
-                }
-                catch (Exception e)
-                {
-                    Log("exception encountered when downloading");
-                    Log(FilePath);
-                    Log(blob.FileName);
-                    Error(e);
-                    noerror = false;
-
-                    DialogResult res = MessageBox.Show($"downloading {filename} failed due to an xbox authentication issue.\nretry?\n\nyes: retry downloading the same file\nno: skip the file\ncancel: cancel all download", "Download error", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Error);
-                    if (res == DialogResult.Yes)
-                    {
-                        bool retry = true;
-                        bool first = true;
-                        while (retry)
-                        {
-                            DialogResult again = DialogResult.Yes;
-                            if (!first)
-                            {
-                                again = MessageBox.Show("Download failed. try again?", "Download error", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                            }
-                            first = false;
-                            if (again == DialogResult.Yes)
-                            {
-                                Log("Loading Xbox live credentials");
-                                LoadXblTokenCredentials();
-                                if (Config.DeviceToken == null || Config.UserToken == null || (Config.UserToken == Config.DeviceToken))
-                                {
-                                    Error(new Exception("TOKENS WERE NULL"));
-                                    continue;
-                                }
-                                Log("Authenticating...");
-                                try
-                                {
-                                    await AuthenticateXbl();
-                                }
-                                catch (XboxAuthException E)
-                                {
-                                    Error(E);
-                                    continue;
-                                }
-                                try
-                                {
-                                    Log($"Retrying downloading Atom: {filename}");
-                                    atomData = await DownloadAtomData(blob);
-                                }
-                                catch (Exception a)
-                                {
-                                    Error(a);
-                                    continue;
-                                }
                             }
                             else
                             {
-                                retry = false;
+                                try
+                                {
+                                    File.Delete(filePath);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Error(ex);
+                                    noerror = false;
+                                    Log($"skipping {filename} unable delete the invalid file");
+                                    continue;
+                                }
                             }
                         }
                     }
-                    else if (res == DialogResult.No) continue;
-                    else if (res == DialogResult.Cancel) return;
 
-                }
+                    Log($"Downloading: {filename}");
 
-                try
-                {
-                    //saving
-                    using (FileStream fs = new(FilePath, FileMode.CreateNew))
+                    byte[] atomData = null;
+                    try
                     {
-                        await fs.WriteAsync(atomData);
+                        atomData = await DownloadAtomData(atomId);
                     }
-                }
-                catch (Exception e)
-                {
-                    noerror = false;
-                    Error(e);
-                }
-                Downloader.main.ProgressBarUpdate();
+                    catch (Exception e)
+                    {
+                        Log("exception encountered when downloading");
+                        Log(filePath);
+                        Log(blob.FileName);
+                        Error(e);
+                        noerror = false;
 
+                        DialogResult res = MessageBox.Show($"downloading {filename} failed due to an xbox authentication issue.\nretry?\n\nyes: retry downloading the same file\nno: skip the file\ncancel: cancel all download", "Download error", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Error);
+                        if (res == DialogResult.Yes)
+                        {
+                            bool retry = true;
+                            bool first = true;
+                            while (retry)
+                            {
+                                DialogResult again = DialogResult.Yes;
+                                if (!first)
+                                {
+                                    again = MessageBox.Show("Download failed. try again?", "Download error", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                                }
+                                first = false;
+                                if (again == DialogResult.Yes)
+                                {
+                                    Log("Loading Xbox live credentials");
+                                    LoadXblTokenCredentials();
+                                    if (Config.DeviceToken == null || Config.UserToken == null || (Config.UserToken == Config.DeviceToken))
+                                    {
+                                        Error(new Exception("TOKENS WERE NULL"));
+                                        continue;
+                                    }
+                                    Log("Authenticating...");
+                                    try
+                                    {
+                                        await AuthenticateXbl();
+                                    }
+                                    catch (XboxAuthException E)
+                                    {
+                                        Error(E);
+                                        continue;
+                                    }
+                                    try
+                                    {
+                                        Log($"Retrying downloading: {filename}");
+                                        atomData = await DownloadAtomData(atomId);
+                                    }
+                                    catch (Exception a)
+                                    {
+                                        Error(a);
+                                        continue;
+                                    }
+                                }
+                                else
+                                {
+                                    retry = false;
+                                }
+                            }
+                        }
+                        else if (res == DialogResult.No) continue;
+                        else if (res == DialogResult.Cancel) return;
+
+                    }
+
+                    try
+                    {
+                        //saving
+                        using (FileStream fs = new(filePath, FileMode.CreateNew))
+                        {
+                            await fs.WriteAsync(atomData);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        noerror = false;
+                        Error(e);
+                    }
+                    Downloader.main.ProgressBarUpdate();
+                }
             }
 
             //cleaning up
             try
             {
-                Log("cleaning up");
+                Log("Cleaning up");
                 if (noerror) File.Delete(Path.Combine(Config.OutputPath, Config.MetaFileName));
             }
             catch (Exception e)
             {
                 Error(e);
             }
-            Log("FINISHED - ENJOY SPARKING!");
-            MessageBox.Show(Config.FinalMessage, "thank you");
+            Log("FINISHED");
+            MessageBox.Show(Config.FinalMessage, "Thanks");
             return;
         }
 

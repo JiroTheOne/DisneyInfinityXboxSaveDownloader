@@ -38,6 +38,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="BouncyCastle.Cryptography" Version="2.3.1" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\xbcsmgr\src\XboxCsMgr.Helpers\XboxCsMgr.Helpers.csproj" />
     <ProjectReference Include="..\xbcsmgr\src\XboxCsMgr.XboxLive\XboxCsMgr.XboxLive.csproj" />
   </ItemGroup>

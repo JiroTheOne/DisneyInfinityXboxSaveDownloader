@@ -21,7 +21,7 @@ namespace PSBSD
         {
             if (Config.OutputPath != string.Empty)
             {
-                if (Directory.EnumerateFileSystemEntries(Config.OutputPath).Any() )
+                if (Directory.EnumerateFileSystemEntries(Config.OutputPath).Any())
                 {
                     if (File.Exists(Path.Combine(Config.OutputPath, Config.MetaFileName)))
                     {
@@ -142,9 +142,24 @@ namespace PSBSD
         {
             System.Diagnostics.Process.Start(new ProcessStartInfo
             {
-                FileName = "https://discord.gg/zGGpFp8fSm",
+                FileName = "https://discord.gg/RWSt8xnZGy",
                 UseShellExecute = true
             });
+        }
+
+        private void EditionImage2_Click(object sender, EventArgs e)
+        {
+            Config.ServiceId = Config.ServiceId2;
+            Config.PackageFamilyName = Config.PackageFamilyName2;
+            Tools.Log("Set Version to 2.0");
+        }
+
+        private void EditionImage3_Click(object sender, EventArgs e)
+        {
+            Config.ServiceId = Config.ServiceId3;
+            Config.PackageFamilyName = Config.PackageFamilyName3;
+            Tools.Log("Set Version to 3.0");
+
         }
     }
 }
